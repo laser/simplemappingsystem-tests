@@ -115,9 +115,38 @@ class TestCase:
         assert len(r) == 2
         assert len(set([p["name"] for p in r[0]["position_properties"]]).intersection({"core_longitude", "core_latitude"})) == 2
 
+        # delete positions we've added
         svc.delete_position(self.uid, temp_position_id_a)
         svc.delete_position(self.uid, temp_position_id_b)
 
         # should now be back to zero
         r = svc.search_positions(self.uid, self.pid, "")
         assert len(r) == 0
+
+    def testProjectAccessLifecycle(self):
+        # creating a project adds project access
+        r = svc.add_project(self.uid, "test-project-access")
+        new_project_id = r["project_id"]
+        r = svc.get_project_access(self.uid, new_project_id)
+        assert len(r) == 1
+        assert r[0]["user_id"] == self.uid
+        assert r[0]["access_type"] == "OWNER"
+        owner_project_access_id = r[0]["project_access_id"]
+
+        # add a public access row
+        svc.add_project_access(self.uid, new_project_id, "PUBLIC", "EN_US", "METRIC", "DECIMAL", "HYBRID", "", [])
+        svc.add_project_access(self.uid, new_project_id, "READONLY", "ES_LA", "METRIC", "DECIMAL", "HYBRID", "Welcome to the system", ["text@example.com"])
+
+        # load the project_access for the project again and verify
+        r2 = svc.get_project_access(self.uid, new_project_id)
+        assert len(r2) == 3
+        
+        # delete the public and invited-user
+        access_ids = filter(lambda x: x != owner_project_access_id, set(p["project_access_id"] for p in r2))
+        for id in access_ids:
+            svc.delete_project_access(self.uid, id)
+        
+        r = svc.get_project_access(self.uid, new_project_id)
+        assert len(r) == 1
+        
+        
