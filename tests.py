@@ -62,14 +62,27 @@ class TestCase:
         # with the project
         r = svc.get_position_fields(self.uid, self.pid, False, [])
         assert len(set([f["name"] for f in r]).intersection({"core_icon", "core_latitude", "core_longitude"})) == 3
+        
+        # order matters
+        assert r[0]["name"] == "core_icon"
+        assert r[1]["name"] == "core_latitude"
+        assert r[2]["name"] == "core_longitude"
 
         # add an additional field and stash the id
         r = svc.add_position_field(self.uid, self.pid, "STRING", "favorite_color")
         tmp_position_field_id = r["position_field_id"]
 
-        # should now have four fields
+        # should now have four fields, with the new one last
         r = svc.get_position_fields(self.uid, self.pid, False, [])
         assert len(set([f["name"] for f in r]).intersection({"core_icon", "core_latitude", "core_longitude", "favorite_color"})) == 4
+        assert r[3]["name"] == "favorite_color"
+
+        # update the order of the fields and reload
+        r[2], r[3] = r[3], r[2]
+        svc.update_position_fields(self.uid, r)
+        r = svc.get_position_fields(self.uid, self.pid, False, [])
+        assert r[2]["name"] == "favorite_color"
+        assert r[3]["name"] == "core_longitude"
 
         # delete the custom one we created
         svc.delete_position_field(self.uid, tmp_position_field_id)
