@@ -2,6 +2,7 @@
 
 import barrister
 import logging
+from functools import wraps
 
 # disable debug logging
 logging.getLogger("barrister").setLevel(logging.INFO)
@@ -14,7 +15,21 @@ client = barrister.Client(trans)
 
 svc = client.SimpleMappingSystem
 
-class TestCase:
+def expectsRpcException(code):
+    def decorator(function):
+        @wraps(function)
+        def wrapper(*args, **kwargs):
+            try:
+                function(*args, **kwargs)
+            except barrister.RpcException as e:
+                assert e.code == code 
+            else:
+                assert False, "Should have thrown barrister.RpcException with code: %s" % code
+        return wrapper
+    return decorator
+
+class TestLifecycle:
+    
     def __init__(self):
         self.pid = None
         self.uid = "test-1234"
@@ -98,16 +113,13 @@ class TestCase:
 
         # add a position to project, including a property
         # for the field just created
-        r = svc.add_position(self.uid, self.pid, [{
-            "name": "core_latitude",
-            "value": "45"
-        }])
+        r = svc.add_position(self.uid, self.pid, [{"name": "core_icon", "value": "faje.png"}, {"name": "core_latitude", "value": "40"}, {"name": "core_longitude", "value": "40"}])
         temp_position_id_a = r["position_id"]
 
         # should return back a position now
         r = svc.search_positions(self.uid, self.pid, "")
-        assert r[0]["position_properties"][0]["name"] == "core_latitude"
-        assert r[0]["position_properties"][0]["value"] == "45"
+        assert r[0]["position_properties"][0]["name"] == "core_icon"
+        assert r[0]["position_properties"][0]["value"] == "faje.png"
 
         # update the position, adding some properties and
         # updating the one previously-added
@@ -120,7 +132,7 @@ class TestCase:
         }])
 
         # batch-add one more position (and properties)
-        r = svc.add_positions(self.uid, self.pid, [{"position_properties":[{"name": "core_latitude", "value": "60"}, {"name": "core_longitude", "value": "60"}]}])
+        r = svc.add_positions(self.uid, self.pid, [{"position_properties":[{"name": "core_icon", "value": "faje.png"}, {"name": "core_latitude", "value": "60"}, {"name": "core_longitude", "value": "60"}]}])
         temp_position_id_b = r[0]["position_id"]
 
         # should now have the one position we added
@@ -161,5 +173,46 @@ class TestCase:
         
         r = svc.get_project_access(self.uid, new_project_id)
         assert len(r) == 1
-        
-        
+
+class TestErrors:
+
+    def __init__(self):
+        self.pid = None
+        self.uid = "test-1234"
+    
+    def setUp(self):
+        r = svc.add_project(self.uid, "test-project")
+        self.pid = r["project_id"]
+
+    def tearDown(self):
+        r = svc.get_projects(self.uid)
+        for project in r:
+            svc.delete_project(self.uid, project["project_id"])
+    
+    @expectsRpcException(1004)   
+    def testUnableToRemoveOwnerProjectAccess(self):
+        r = svc.get_project_access(self.uid, self.pid)
+        assert r[0]["access_type"] == "OWNER"
+        assert r[0]["user_id"] == self.uid
+
+        svc.delete_project_access(self.uid, r[0]["project_access_id"])
+
+    @expectsRpcException(1004)
+    def testUnableToAddOwnerProjectAccess(self):
+        svc.add_project_access(self.uid, self.pid, "OWNER", "EN_US", "METRIC", "DECIMAL", "HYBRID", "", ["test@example.com"])
+
+    @expectsRpcException(1002)
+    def testMustSpecifyEmailAddressWhenAddingNonPublicAccessType(self):
+        svc.add_project_access(self.uid, self.pid, "COLLABORATOR", "EN_US", "METRIC", "DECIMAL", "HYBRID", "", [])
+
+    @expectsRpcException(1002)
+    def testAddPositionRequiresCoreProperties(self):
+        create_position_properties = [{
+            "name": "core_icon",
+            "value": "test.jpg"
+        }, {
+            "name": "core_latitude",
+            "value": "45"
+        }]
+
+        svc.add_position(self.uid, self.pid, create_position_properties)
