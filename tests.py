@@ -89,7 +89,7 @@ class TestCase:
             "name": "core_latitude",
             "value": "45"
         }])
-        temp_position_id = r["position_id"]
+        temp_position_id_a = r["position_id"]
 
         # should return back a position now
         r = svc.search_positions(self.uid, self.pid, "")
@@ -98,7 +98,7 @@ class TestCase:
 
         # update the position, adding some properties and
         # updating the one previously-added
-        svc.update_position(self.uid, temp_position_id, [{
+        svc.update_position(self.uid, temp_position_id_a, [{
             "name": "core_latitude",
             "value": "14"
         }, {
@@ -106,13 +106,18 @@ class TestCase:
             "value": "16"
         }])
 
+        # batch-add one more position (and properties)
+        r = svc.add_positions(self.uid, self.pid, [{"position_properties":[{"name": "core_latitude", "value": "60"}, {"name": "core_longitude", "value": "60"}]}])
+        temp_position_id_b = r[0]["position_id"]
+
         # should now have the one position we added
         r = svc.search_positions(self.uid, self.pid, "")
-        assert len(r) == 1
+        assert len(r) == 2
         assert len(set([p["name"] for p in r[0]["position_properties"]]).intersection({"core_longitude", "core_latitude"})) == 2
 
-        svc.delete_position(self.uid, temp_position_id)
+        svc.delete_position(self.uid, temp_position_id_a)
+        svc.delete_position(self.uid, temp_position_id_b)
 
-        # should now have the one position we added
+        # should now be back to zero
         r = svc.search_positions(self.uid, self.pid, "")
         assert len(r) == 0
