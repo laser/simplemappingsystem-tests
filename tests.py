@@ -7,7 +7,7 @@ import logging
 logging.getLogger("barrister").setLevel(logging.INFO)
 
 # change this to point at wherever your server is running
-trans = barrister.HttpTransport("http://localhost:3002/api-new")
+trans = barrister.HttpTransport("http://localhost:3002/api")
 
 # automatically connects to endpoint and loads IDL JSON contract
 client = barrister.Client(trans)
