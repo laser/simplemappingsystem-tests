@@ -189,6 +189,25 @@ class TestErrors:
         for project in r:
             svc.delete_project(self.uid, project["project_id"])
     
+    @expectsRpcException(1002)
+    def testMustSpecifyEmailAddressWhenAddingNonPublicAccessType(self):
+        svc.add_project_access(self.uid, self.pid, "COLLABORATOR", "EN_US", "METRIC", "DECIMAL", "HYBRID", "", [])
+    
+    @expectsRpcException(1002)
+    def testAddPositionRequiresCoreFieldValues(self):
+        create_position_properties = [{
+            "name": "core_icon",
+            "value": "test.jpg"
+        }, {
+            "name": "core_latitude",
+            "value": ""
+        }, {
+            "name": "core_longitude",
+            "value": ""
+        }]
+
+        svc.add_position(self.uid, self.pid, create_position_properties)
+    
     @expectsRpcException(1004)   
     def testUnableToRemoveOwnerProjectAccess(self):
         r = svc.get_project_access(self.uid, self.pid)
@@ -201,12 +220,8 @@ class TestErrors:
     def testUnableToAddOwnerProjectAccess(self):
         svc.add_project_access(self.uid, self.pid, "OWNER", "EN_US", "METRIC", "DECIMAL", "HYBRID", "", ["test@example.com"])
 
-    @expectsRpcException(1002)
-    def testMustSpecifyEmailAddressWhenAddingNonPublicAccessType(self):
-        svc.add_project_access(self.uid, self.pid, "COLLABORATOR", "EN_US", "METRIC", "DECIMAL", "HYBRID", "", [])
-
-    @expectsRpcException(1002)
-    def testAddPositionRequiresCoreProperties(self):
+    @expectsRpcException(1004)
+    def testAddPositionRequiresCoreField(self):
         create_position_properties = [{
             "name": "core_icon",
             "value": "test.jpg"
@@ -216,3 +231,22 @@ class TestErrors:
         }]
 
         svc.add_position(self.uid, self.pid, create_position_properties)
+
+    @expectsRpcException(1004)
+    def testMustAddCustomFieldsBeforeProperties(self):
+        create_position_properties = [{
+            "name": "core_icon",
+            "value": "test.jpg"
+        }, {
+            "name": "core_latitude",
+            "value": "45"
+        }, {
+            "name": "core_longitude",
+            "value": "45"
+        }, {
+            "name": "dontexistyet",
+            "value": "derp"
+        }]
+
+        svc.add_position(self.uid, self.pid, create_position_properties)
+        
