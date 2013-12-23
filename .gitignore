@@ -1,5 +1,14 @@
-.idea
+run.sh
 *.swp
 *.pyc
 *.iml
-run.sh
+.idea
+
+sms.html
+sms.json
+sql/build.sh
+.Python
+bin/
+include/
+lib/
+man/
