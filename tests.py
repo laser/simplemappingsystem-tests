@@ -2,13 +2,17 @@
 
 import barrister
 import logging
+import os
 from functools import wraps
+from utilities import dict_get
+
+API_URI = dict_get(os.environ, 'API_URI')
 
 # disable debug logging
 logging.getLogger("barrister").setLevel(logging.INFO)
 
 # change this to point at wherever your server is running
-trans = barrister.HttpTransport("http://localhost:3002/api")
+trans = barrister.HttpTransport(API_URI)
 
 # automatically connects to endpoint and loads IDL JSON contract
 client = barrister.Client(trans)
@@ -22,14 +26,14 @@ def expectsRpcException(code):
             try:
                 function(*args, **kwargs)
             except barrister.RpcException as e:
-                assert e.code == code 
+                assert e.code == code
             else:
                 assert False, "Should have thrown barrister.RpcException with code: %s" % code
         return wrapper
     return decorator
 
 class TestLifecycle:
-    
+
     def __init__(self):
         self.pid = None
         self.atid = "test-token"
@@ -73,7 +77,7 @@ class TestLifecycle:
         # with the project
         r = svc.get_position_fields(self.atid, self.pid, False, [])
         assert len(set([f["name"] for f in r]).intersection({"core_icon", "core_latitude", "core_longitude"})) == 3
-        
+
         # order matters
         assert r[0]["name"] == "core_icon"
         assert r[1]["name"] == "core_latitude"
@@ -160,12 +164,12 @@ class TestLifecycle:
         # load the project_access for the project again and verify
         r2 = svc.get_project_access(self.atid, new_project_id)
         assert len(r2) == 3
-        
+
         # delete the public and invited-user
         access_ids = filter(lambda x: x != owner_project_access_id, set(p["project_access_id"] for p in r2))
         for id in access_ids:
             svc.delete_project_access(self.atid, id)
-        
+
         r = svc.get_project_access(self.atid, new_project_id)
         assert len(r) == 1
 
@@ -174,7 +178,7 @@ class TestErrors:
     def __init__(self):
         self.pid = None
         self.atid = "test-token"
-    
+
     def setUp(self):
         r = svc.add_project(self.atid, "test-project")
         self.pid = r["project_id"]
@@ -183,11 +187,11 @@ class TestErrors:
         r = svc.get_projects(self.atid)
         for project in r:
             svc.delete_project(self.atid, project["project_id"])
-    
+
     @expectsRpcException(1002)
     def testMustSpecifyEmailAddressWhenAddingNonPublicAccessType(self):
         svc.add_project_access(self.atid, self.pid, "COLLABORATOR", "EN_US", "METRIC", "DECIMAL", "HYBRID", "", [])
-    
+
     @expectsRpcException(1002)
     def testAddPositionRequiresCoreFieldValues(self):
         create_position_properties = [{
@@ -202,8 +206,8 @@ class TestErrors:
         }]
 
         svc.add_position(self.atid, self.pid, create_position_properties)
-    
-    @expectsRpcException(1004)   
+
+    @expectsRpcException(1004)
     def testUnableToRemoveOwnerProjectAccess(self):
         r = svc.get_project_access(self.atid, self.pid)
         assert r[0]["access_type"] == "OWNER"
@@ -243,4 +247,4 @@ class TestErrors:
         }]
 
         svc.add_position(self.atid, self.pid, create_position_properties)
-        
+
